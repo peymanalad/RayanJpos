@@ -25,4 +25,4 @@ ENV WAIT_FOR_TIMEOUT="60"
 
 EXPOSE 5000
 
-ENTRYPOINT ["/bin/sh", "-c", "set -a; [ -f .env ] && . ./.env; set +a; if [ -n \"$WAIT_FOR\" ]; then /usr/local/bin/wait-for \"$WAIT_FOR\" \"$WAIT_FOR_TIMEOUT\"; fi; exec java $JAVA_OPTS -cp app.jar org.example.server.ServerMain"]
+ENTRYPOINT ["/bin/sh", "-c", "set -a; [ -f .env ] && . ./.env; set +a; if [ -n \"$WAIT_FOR\" ]; then /usr/local/bin/wait-for \"$WAIT_FOR\" \"$WAIT_FOR_TIMEOUT\"; fi; exec java $JAVA_OPTS -cp \"app.jar:lib/*\" org.example.server.ServerMain"]

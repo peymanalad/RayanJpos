@@ -57,7 +57,7 @@ services:
       - .env
     volumes:
       - ./scripts/wait-for-it.sh:/opt/scripts/wait-for-it.sh:ro
-    entrypoint: ["/bin/sh", "-c", "/opt/scripts/wait-for-it.sh server:${ISO_SERVER_PORT:-5000} -- java $${JAVA_OPTS} -cp app.jar org.example.client.ClientMain && touch /tmp/client_ready && tail -f /dev/null"]
+    entrypoint: ["/bin/sh", "-c", "/opt/scripts/wait-for-it.sh server:${ISO_SERVER_PORT:-5000} -- java $${JAVA_OPTS} -cp app.jar:lib/* org.example.client.ClientMain && touch /tmp/client_ready && tail -f /dev/null"]
     healthcheck:
       test: ["CMD", "test", "-f", "/tmp/client_ready"]
       interval: 30s
