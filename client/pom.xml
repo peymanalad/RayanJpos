@@ -14,4 +14,18 @@
     <name>Rayan jPOS Client</name>
     <packaging>jar</packaging>
 
+    <dependencies>
+        <dependency>
+            <groupId>org.jpos</groupId>
+            <artifactId>jpos</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.github.cdimascio</groupId>
+            <artifactId>dotenv-java</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+        </dependency>
+    </dependencies>
 </project>
