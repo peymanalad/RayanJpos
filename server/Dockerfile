@@ -3,16 +3,19 @@ FROM maven:3.9.9-eclipse-temurin-23 AS build
 WORKDIR /workspace
 COPY pom.xml ./
 COPY server/pom.xml server/pom.xml
+COPY client/pom.xml client/pom.xml
 COPY server/src server/src
+COPY client/src client/src
 RUN mvn -pl server -am -DskipTests package
 
 # Runtime stage
 FROM eclipse-temurin:23-jre
 WORKDIR /opt/rayan-jpos
-RUN apt-get update \ \
-    && apt-get install -y --no-install-recommends netcat-openbsd \ \
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends netcat-openbsd \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=build /workspace/server/target/server-1.0-SNAPSHOT.jar app.jar
+COPY --from=build /workspace/server/target/lib ./lib
 COPY server/wait-for.sh /usr/local/bin/wait-for
 RUN chmod +x /usr/local/bin/wait-for
 
