@@ -36,6 +36,19 @@ public final class ClientMain {
     }
 
     public static void main(String[] args) {
+        try {
+            runClient();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            LOGGER.error("Client execution interrupted", e);
+            System.exit(1);
+        } catch (Exception e) {
+            LOGGER.error("Client execution failed", e);
+            System.exit(1);
+        }
+    }
+
+    private static void runClient() throws Exception {
         Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
 
         String host = Optional.ofNullable(dotenv.get("ISO_SERVER_HOST")).orElse("localhost");
@@ -50,11 +63,9 @@ public final class ClientMain {
 
             GenericPackager packager = new GenericPackager(packagerStream);
             ASCIIChannel channel = new ASCIIChannel(host, port, packager);
-            channel.setTimeout((int) responseTimeout);
+            channel.setTimeout(safeTimeout(responseTimeout));
 
-            SynchronousMux mux = null;
-            try {
-                mux = startMux(channel);
+            try (SynchronousMux mux = startMux(channel)) {
                 if (!mux.connect(connectTimeout)) {
                     throw new IllegalStateException("Unable to connect to ISO host " + host + ':' + port);
                 }
@@ -68,22 +79,12 @@ public final class ClientMain {
                 } else {
                     LOGGER.info("Received ISO 0210 response: {}", describeIsoMessage(response));
                 }
-            } finally {
-                if (mux != null) {
-                    stopMux(mux);
-                }
             }
-        } catch (Exception e) {
-            LOGGER.error("Client execution failed", e);
         }
     }
 
     private static SynchronousMux startMux(ASCIIChannel channel) {
         return new SynchronousMux(channel);
-    }
-
-    private static void stopMux(SynchronousMux mux) {
-        mux.close();
     }
 
     private static ISOMsg buildAuthorizationRequest(GenericPackager packager, Dotenv dotenv) throws ISOException {
@@ -157,6 +158,13 @@ public final class ClientMain {
         }
     }
 
+    private static int safeTimeout(long timeout) {
+        if (timeout <= 0) {
+            return 0;
+        }
+        return timeout > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) timeout;
+    }
+
     private static final class SynchronousMux implements MUX, AutoCloseable {
         private final BaseChannel channel;
 
@@ -200,7 +208,7 @@ public final class ClientMain {
         public synchronized ISOMsg request(ISOMsg message, long timeout) throws ISOException {
             ensureConnected();
             try {
-                channel.setTimeout((int) timeout);
+                channel.setTimeout(safeTimeout(timeout));
             } catch (SocketException e) {
                 throw new ISOException(e);
             }
