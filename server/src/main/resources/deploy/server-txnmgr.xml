@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<transaction-manager name="server-txnmgr" logger="Q2" class="org.jpos.q2.qbean.TransactionManager">
+    <property name="space" value="txnmgr"/>
+    <property name="queue" value="server"/>
+    <participant class="org.example.server.participant.ValidateMsg"/>
+    <participant class="org.example.server.participant.PersistToOracle"/>
+    <participant class="org.example.server.participant.BuildResponse"/>
+</transaction-manager>

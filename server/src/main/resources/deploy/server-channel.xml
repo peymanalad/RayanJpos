@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<server name="server-channel" logger="Q2" class="org.jpos.q2.iso.QServer">
+    <channel name="server-channel" class="org.jpos.iso.channel.ASCIIChannel"
+             packager="org.jpos.iso.packager.GenericPackager">
+        <property name="packager-config" value="packager/iso87ascii.xml"/>
+        <property name="port" value="${SERVER_PORT:-5000}"/>
+        <property name="host" value="0.0.0.0"/>
+    </channel>
+    <request-listener class="org.jpos.q2.iso.QMUX">
+        <property name="mux-name" value="server-mux"/>
+    </request-listener>
+</server>

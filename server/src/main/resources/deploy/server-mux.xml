@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mux name="server-mux" logger="Q2" class="org.jpos.q2.iso.QMUX">
+    <in>server-channel</in>
+    <out>server-channel</out>
+    <ready>server-channel.ready</ready>
+    <space>txnmgr</space>
+    <queue>server</queue>
+    <key>11</key>
+</mux>
