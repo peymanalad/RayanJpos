@@ -14,8 +14,7 @@ WORKDIR /opt/rayan-jpos
 RUN apt-get update \
     && apt-get install -y --no-install-recommends netcat-openbsd \
     && rm -rf /var/lib/apt/lists/*
-COPY --from=build /workspace/server/target/server-1.0-SNAPSHOT.jar app.jar
-COPY --from=build /workspace/server/target/lib ./lib
+COPY --from=build /workspace/server/target/server-1.0-SNAPSHOT-all.jar app.jar
 COPY server/wait-for.sh /usr/local/bin/wait-for
 RUN chmod +x /usr/local/bin/wait-for
 
@@ -25,4 +24,4 @@ ENV WAIT_FOR_TIMEOUT="60"
 
 EXPOSE 5000
 
-ENTRYPOINT ["/bin/sh", "-c", "set -a; [ -f .env ] && . ./.env; set +a; if [ -n \"$WAIT_FOR\" ]; then /usr/local/bin/wait-for \"$WAIT_FOR\" \"$WAIT_FOR_TIMEOUT\"; fi; exec java $JAVA_OPTS -cp \"app.jar:lib/*\" org.example.server.ServerMain"]
+ENTRYPOINT ["/bin/sh", "-c", "set -a; [ -f .env ] && . ./.env; set +a; if [ -n \"$WAIT_FOR\" ]; then /usr/local/bin/wait-for \"$WAIT_FOR\" \"$WAIT_FOR_TIMEOUT\"; fi; exec java $JAVA_OPTS -jar app.jar"]
