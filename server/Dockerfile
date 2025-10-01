@@ -15,6 +15,8 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends netcat-openbsd \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=build /workspace/server/target/server-1.0-SNAPSHOT.jar app.jar
+COPY server/src/main/resources/deploy   /opt/rayan-jpos/runtime/deploy/
+COPY server/src/main/resources/packager /opt/rayan-jpos/runtime/packager/
 COPY server/wait-for.sh /usr/local/bin/wait-for
 RUN chmod +x /usr/local/bin/wait-for
 

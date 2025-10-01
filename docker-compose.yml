@@ -38,7 +38,8 @@ services:
     ports:
       - "${SERVER_PORT:-5000}:5000"
     volumes:
-      - server-data:/opt/rayan-jpos/runtime
+      - ./server/src/main/resources/deploy:/opt/rayan-jpos/runtime/deploy:rw
+      - ./server/src/main/resources/packager:/opt/rayan-jpos/runtime/packager:rw
     healthcheck:
       test: ["CMD-SHELL", "nc -z localhost ${SERVER_PORT:-5000}"]
       interval: 10s
