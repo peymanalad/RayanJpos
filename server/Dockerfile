@@ -12,7 +12,7 @@ RUN mvn -pl server -am -DskipTests package
 FROM eclipse-temurin:23-jre
 WORKDIR /opt/rayan-jpos
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends netcat-openbsd \
+    && apt-get install -y --no-install-recommends netcat-openbsd bash\
     && rm -rf /var/lib/apt/lists/*
 COPY --from=build /workspace/server/target/server-1.0-SNAPSHOT.jar app.jar
 COPY server/src/main/resources/deploy   /opt/rayan-jpos/runtime/deploy/
