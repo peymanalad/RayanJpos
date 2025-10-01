@@ -2,6 +2,7 @@ package org.example.server.config;
 
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
+import com.zaxxer.hikari.pool.HikariPool;
 import org.example.server.logging.ApplicationLogger;
 import org.example.server.logging.ApplicationLoggerFactory;
 
@@ -46,8 +47,37 @@ public final class DataSourceProvider {
         config.setDriverClassName("oracle.jdbc.OracleDriver");
         config.setMaximumPoolSize(EnvironmentLoader.getInt(MAX_POOL_KEY, 10));
         config.setConnectionTimeout(EnvironmentLoader.getInt(CONNECTION_TIMEOUT_KEY, 30000));
+        config.setInitializationFailTimeout(-1L);
         config.setPoolName("rayan-jpos-oracle-pool");
-        return new HikariDataSource(config);
+
+        int maxAttempts = Math.max(1, EnvironmentLoader.getInt("ORACLE_DB_INIT_ATTEMPTS", 10));
+        int baseDelay = Math.max(100, EnvironmentLoader.getInt("ORACLE_DB_INIT_BACKOFF_MS", 2000));
+
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+                return new HikariDataSource(config);
+            } catch (HikariPool.PoolInitializationException ex) {
+                if (attempt == maxAttempts) {
+                    throw new IllegalStateException(
+                            String.format("Unable to initialise Oracle datasource after %d attempts", maxAttempts), ex);
+                }
+
+                long delay = (long) baseDelay * attempt;
+                LOGGER.warn("Attempt {} to initialise Oracle datasource failed. Retrying in {} ms", attempt, delay, ex.getCause());
+                sleep(delay);
+            }
+        }
+
+        throw new IllegalStateException("Failed to initialise Oracle datasource due to unexpected error");
+    }
+
+    private static void sleep(long delay) {
+        try {
+            Thread.sleep(delay);
+        } catch (InterruptedException interruptedException) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Interrupted while waiting to retry Oracle datasource initialisation", interruptedException);
+        }
     }
 
     public static void close() {
