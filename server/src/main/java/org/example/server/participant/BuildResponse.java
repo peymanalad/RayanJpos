@@ -1,12 +1,12 @@
 package org.example.server.participant;
 
+import org.example.server.logging.ApplicationLogger;
+import org.example.server.logging.ApplicationLoggerFactory;
 import org.example.server.util.ServerContextKeys;
 import org.jpos.iso.ISOException;
 import org.jpos.iso.ISOMsg;
 import org.jpos.transaction.Context;
 import org.jpos.transaction.TransactionParticipant;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.Serializable;
 
@@ -14,7 +14,7 @@ import java.io.Serializable;
  * Builds the ISO-8583 response message using the data stored in the transaction context.
  */
 public class BuildResponse implements TransactionParticipant {
-    private static final Logger LOGGER = LoggerFactory.getLogger(BuildResponse.class);
+    private static final ApplicationLogger LOGGER = ApplicationLoggerFactory.getLogger(BuildResponse.class);
 
     @Override
     public int prepare(long id, Serializable context) {

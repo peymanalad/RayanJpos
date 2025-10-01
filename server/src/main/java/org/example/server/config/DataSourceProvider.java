@@ -2,8 +2,8 @@ package org.example.server.config;
 
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.example.server.logging.ApplicationLogger;
+import org.example.server.logging.ApplicationLoggerFactory;
 
 import javax.sql.DataSource;
 import java.util.concurrent.atomic.AtomicReference;
@@ -18,7 +18,7 @@ public final class DataSourceProvider {
     public static final String MAX_POOL_KEY = "ORACLE_DB_MAX_POOL";
     public static final String CONNECTION_TIMEOUT_KEY = "ORACLE_DB_CONNECTION_TIMEOUT";
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(DataSourceProvider.class);
+    private static final ApplicationLogger LOGGER = ApplicationLoggerFactory.getLogger(DataSourceProvider.class);
     private static final AtomicReference<HikariDataSource> DATA_SOURCE = new AtomicReference<>();
 
     private DataSourceProvider() {

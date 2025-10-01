@@ -2,8 +2,8 @@ package org.example.server.config;
 
 import io.github.cdimascio.dotenv.Dotenv;
 import io.github.cdimascio.dotenv.DotenvEntry;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.example.server.logging.ApplicationLogger;
+import org.example.server.logging.ApplicationLoggerFactory;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -12,7 +12,7 @@ import java.util.Optional;
  * Loads application configuration from the environment and an optional .env file.
  */
 public final class EnvironmentLoader {
-    private static final Logger LOGGER = LoggerFactory.getLogger(EnvironmentLoader.class);
+    private static final ApplicationLogger LOGGER = ApplicationLoggerFactory.getLogger(EnvironmentLoader.class);
     private static final Dotenv DOTENV = Dotenv.configure()
             .ignoreIfMissing()
             .ignoreIfMalformed()

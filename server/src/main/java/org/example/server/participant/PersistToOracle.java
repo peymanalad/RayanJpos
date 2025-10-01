@@ -1,13 +1,13 @@
 package org.example.server.participant;
 
 import org.example.server.config.DataSourceProvider;
+import org.example.server.logging.ApplicationLogger;
+import org.example.server.logging.ApplicationLoggerFactory;
 import org.example.server.util.ServerContextKeys;
 import org.jpos.iso.ISOException;
 import org.jpos.iso.ISOMsg;
 import org.jpos.transaction.Context;
 import org.jpos.transaction.TransactionParticipant;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.sql.DataSource;
 import java.io.Serializable;
@@ -20,7 +20,7 @@ import java.sql.SQLException;
  * Persists the ISO-8583 transaction data into an Oracle database using a HikariCP datasource.
  */
 public class PersistToOracle implements TransactionParticipant {
-    private static final Logger LOGGER = LoggerFactory.getLogger(PersistToOracle.class);
+    private static final ApplicationLogger LOGGER = ApplicationLoggerFactory.getLogger(PersistToOracle.class);
     private static final SecureRandom RANDOM = new SecureRandom();
     private static final String INSERT_SQL = "INSERT INTO ISO_TRANSACTIONS " +
             "(MTI, PAN, PROCESSING_CODE, AMOUNT, TRANSMISSION_DATETIME, STAN, TERMINAL_ID) " +

@@ -13,11 +13,16 @@ import org.slf4j.LoggerFactory;
 
 import java.io.InputStream;
 import java.io.IOException;
+import java.net.ConnectException;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
+import java.net.UnknownHostException;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
@@ -51,10 +56,46 @@ public final class ClientMain {
     private static void runClient() throws Exception {
         Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
 
-        String host = Optional.ofNullable(dotenv.get("ISO_SERVER_HOST")).orElse("localhost");
+        List<String> hosts = determineHosts(dotenv.get("ISO_SERVER_HOST"));
         int port = parseInt(dotenv.get("ISO_SERVER_PORT"), 5000);
         long connectTimeout = parseLong(dotenv.get("ISO_CONNECT_TIMEOUT_MS"), TimeUnit.SECONDS.toMillis(30));
         long responseTimeout = parseLong(dotenv.get("ISO_RESPONSE_TIMEOUT_MS"), TimeUnit.SECONDS.toMillis(30));
+
+        ISOException lastIsoException = null;
+        IllegalStateException lastIllegalStateException = null;
+        for (int index = 0; index < hosts.size(); index++) {
+            String host = hosts.get(index);
+            boolean hasFallback = index < hosts.size() - 1;
+            try {
+                executeClient(host, port, connectTimeout, responseTimeout, dotenv);
+                return;
+            } catch (ISOException e) {
+                if (hasFallback && isRetryableHostException(e)) {
+                    lastIsoException = e;
+                    LOGGER.warn("Connection attempt to {}:{} failed ({}). Trying next candidate...", host, port, rootCauseMessage(e));
+                    continue;
+                }
+                throw e;
+            } catch (IllegalStateException e) {
+                if (hasFallback) {
+                    lastIllegalStateException = e;
+                    LOGGER.warn("Connection attempt to {}:{} failed ({}). Trying next candidate...", host, port, e.getMessage());
+                    continue;
+                }
+                throw e;
+            }
+        }
+
+        if (lastIsoException != null) {
+            throw new IllegalStateException("Unable to connect to any configured ISO server host " + hosts, lastIsoException);
+        }
+        if (lastIllegalStateException != null) {
+            throw lastIllegalStateException;
+        }
+        throw new IllegalStateException("No ISO server host could be resolved from configuration");
+    }
+
+    private static void executeClient(String host, int port, long connectTimeout, long responseTimeout, Dotenv dotenv) throws Exception {
 
         try (InputStream packagerStream = ClientMain.class.getResourceAsStream("/packager/iso87ascii.xml")) {
             if (packagerStream == null) {
@@ -82,6 +123,54 @@ public final class ClientMain {
             }
         }
     }
+
+    private static List<String> determineHosts(String rawHostValue) {
+        LinkedHashSet<String> hosts = new LinkedHashSet<>();
+        if (rawHostValue != null) {
+            for (String value : rawHostValue.split(",")) {
+                String candidate = value.trim();
+                if (!candidate.isEmpty()) {
+                    hosts.add(candidate);
+                }
+            }
+        }
+
+        if (hosts.isEmpty()) {
+            hosts.add("localhost");
+        } else {
+            boolean hasServerAlias = hosts.stream().anyMatch("server"::equalsIgnoreCase);
+            boolean hasLoopback = hosts.stream().anyMatch(ClientMain::isLoopbackHost);
+            if (hasServerAlias && !hasLoopback) {
+                hosts.add("localhost");
+            }
+        }
+
+        return new ArrayList<>(hosts);
+    }
+
+    private static boolean isLoopbackHost(String host) {
+        return "localhost".equalsIgnoreCase(host) || "127.0.0.1".equals(host) || "::1".equals(host);
+    }
+
+    private static boolean isRetryableHostException(Exception exception) {
+        Throwable cause = exception;
+        while (cause != null) {
+            if (cause instanceof UnknownHostException || cause instanceof ConnectException) {
+                return true;
+            }
+            cause = cause.getCause();
+        }
+        return false;
+    }
+
+    private static String rootCauseMessage(Throwable throwable) {
+        Throwable cause = throwable;
+        while (cause.getCause() != null) {
+            cause = cause.getCause();
+        }
+        return cause.getMessage();
+    }
+
 
     private static SynchronousMux startMux(ASCIIChannel channel) {
         return new SynchronousMux(channel);

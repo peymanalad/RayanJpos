@@ -1,12 +1,12 @@
 package org.example.server.participant;
 
+import org.example.server.logging.ApplicationLogger;
+import org.example.server.logging.ApplicationLoggerFactory;
 import org.example.server.util.ServerContextKeys;
 import org.jpos.iso.ISOException;
 import org.jpos.iso.ISOMsg;
 import org.jpos.transaction.Context;
 import org.jpos.transaction.TransactionParticipant;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.Serializable;
 
@@ -14,7 +14,7 @@ import java.io.Serializable;
  * Validates that the inbound ISO-8583 message contains the required fields.
  */
 public class ValidateMsg implements TransactionParticipant {
-    private static final Logger LOGGER = LoggerFactory.getLogger(ValidateMsg.class);
+    private static final ApplicationLogger LOGGER = ApplicationLoggerFactory.getLogger(ValidateMsg.class);
     private static final int[] REQUIRED_FIELDS = {2, 3, 4, 7, 11, 41};
 
     @Override

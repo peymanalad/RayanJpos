@@ -2,9 +2,9 @@ package org.example.server;
 
 import org.example.server.config.DataSourceProvider;
 import org.example.server.config.EnvironmentLoader;
+import org.example.server.logging.ApplicationLogger;
+import org.example.server.logging.ApplicationLoggerFactory;
 import org.jpos.q2.Q2;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -17,7 +17,7 @@ import java.util.List;
  * Entry point for the Rayan jPOS server module.
  */
 public final class ServerMain {
-    private static final Logger LOGGER = LoggerFactory.getLogger(ServerMain.class);
+    private static final ApplicationLogger LOGGER = ApplicationLoggerFactory.getLogger(ServerMain.class);
     private static final List<String> RESOURCES = List.of(
             "deploy/server-channel.xml",
             "deploy/server-mux.xml",
@@ -30,6 +30,7 @@ public final class ServerMain {
     }
 
     public static void main(String[] args) {
+        ensureJavaCompatibility();
         EnvironmentLoader.load();
 
         try {
@@ -101,5 +102,14 @@ public final class ServerMain {
             }
         }
         return configuredHome;
+    }
+
+    private static void ensureJavaCompatibility() {
+        int feature = Runtime.version().feature();
+        if (feature < 22) {
+            String message = String.format("Detected Java %d. Rayan jPOS requires Java 22 or newer to run jPOS Q2.", feature);
+            LOGGER.error(message);
+            throw new IllegalStateException(message);
+        }
     }
 }
