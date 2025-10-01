@@ -1,117 +1,74 @@
 package org.example.server.logging;
-
+import org.jpos.util.Log;
+import org.jpos.util.Logger;
+import org.jpos.util.SimpleLogListener;
+import java.io.PrintStream;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.Objects;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.logging.Level;
 
 /**
- * Creates {@link ApplicationLogger} instances while gracefully degrading to the JDK
- * logging facilities if SLF4J is absent at runtime. This avoids {@link ClassNotFoundException}
- * or {@link NoClassDefFoundError} during static initialisation of server components.
+ * Creates {@link ApplicationLogger} instances backed by the jPOS logging framework.
+ * The factory initialises a shared {@link Logger} with a {@link SimpleLogListener}
+ * so the application can emit log messages without depending on SLF4J at runtime.
  */
 public final class ApplicationLoggerFactory {
-    private static final AtomicBoolean FALLBACK_REPORTED = new AtomicBoolean();
-
+    private static final String LOGGER_NAME = "rayan-jpos-server";
+    private static final Logger ROOT_LOGGER = initialiseRootLogger();
     private ApplicationLoggerFactory() {
     }
 
     public static ApplicationLogger getLogger(Class<?> type) {
         Objects.requireNonNull(type, "type");
-        if (isSlf4jAvailable()) {
-            return Slf4jLogger.create(type);
-        }
-        if (FALLBACK_REPORTED.compareAndSet(false, true)) {
-            System.err.println("[Rayan-jPOS] SLF4J not detected on the classpath. Falling back to java.util.logging.");
-        }
-        return new JulLogger(java.util.logging.Logger.getLogger(type.getName()));
+        return new JposApplicationLogger(type);
     }
 
-    static boolean isSlf4jAvailable() {
-        try {
-            Class.forName("org.slf4j.LoggerFactory", false, ApplicationLoggerFactory.class.getClassLoader());
-            return true;
-        } catch (ClassNotFoundException ex) {
-            return false;
+    private static Logger initialiseRootLogger() {
+        Logger logger = Logger.getLogger(LOGGER_NAME);
+        if (!logger.hasListeners()) {
+            logger.addListener(new SimpleLogListener(defaultStream()));
         }
+        return logger;
+    }
+    private static PrintStream defaultStream() {
+        return System.out;
     }
 
-    private static final class Slf4jLogger implements ApplicationLogger {
-        private final org.slf4j.Logger delegate;
+    private static final class JposApplicationLogger implements ApplicationLogger {
+        private final Log delegate;
 
-        private Slf4jLogger(org.slf4j.Logger delegate) {
-            this.delegate = delegate;
-        }
-
-        private static ApplicationLogger create(Class<?> type) {
-            return new Slf4jLogger(org.slf4j.LoggerFactory.getLogger(type));
+        private JposApplicationLogger(Class<?> type) {
+            this.delegate = new Log(ROOT_LOGGER, type.getSimpleName());
         }
 
         @Override
         public void info(String message, Object... arguments) {
-            delegate.info(message, arguments);
+            delegate.info(format(message, arguments));
         }
 
         @Override
         public void warn(String message, Object... arguments) {
-            delegate.warn(message, arguments);
+            delegate.warn(format(message, arguments));
         }
 
         @Override
         public void warn(String message, Throwable throwable) {
-            delegate.warn(message, throwable);
+            delegate.warn(message != null ? message : "", throwable);
         }
 
         @Override
         public void error(String message, Object... arguments) {
-            delegate.error(message, arguments);
+            delegate.error(format(message, arguments));
         }
 
         @Override
         public void error(String message, Throwable throwable) {
-            delegate.error(message, throwable);
+            delegate.error(message != null ? message : "", throwable);
         }
 
         @Override
         public void debug(String message, Object... arguments) {
-            delegate.debug(message, arguments);
-        }
-    }
-
-    private static final class JulLogger implements ApplicationLogger {
-        private final java.util.logging.Logger delegate;
-
-        private JulLogger(java.util.logging.Logger delegate) {
-            this.delegate = delegate;
-        }
-
-        @Override
-        public void info(String message, Object... arguments) {
-            delegate.log(Level.INFO, format(message, arguments));
-        }
-
-        @Override
-        public void warn(String message, Object... arguments) {
-            delegate.log(Level.WARNING, format(message, arguments));
-        }
-
-        @Override
-        public void warn(String message, Throwable throwable) {
-            delegate.log(Level.WARNING, message, throwable);
-        }
-
-        @Override
-        public void error(String message, Object... arguments) {
-            delegate.log(Level.SEVERE, format(message, arguments));
-        }
-
-        @Override
-        public void error(String message, Throwable throwable) {
-            delegate.log(Level.SEVERE, message, throwable);
-        }
-
-        @Override
-        public void debug(String message, Object... arguments) {
-            delegate.log(Level.FINE, format(message, arguments));
+            delegate.debug(format(message, arguments));
         }
 
         private String format(String message, Object... arguments) {
@@ -135,6 +92,142 @@ public final class ApplicationLoggerFactory {
                 builder.append(' ').append(String.valueOf(arguments[argumentIndex++]));
             }
             return builder.toString();
+        }
+    }
+
+    private static final class Slf4jBridge {
+        private static final Method GET_LOGGER;
+        private static final Method INFO;
+        private static final Method WARN;
+        private static final Method WARN_WITH_THROWABLE;
+        private static final Method ERROR;
+        private static final Method ERROR_WITH_THROWABLE;
+        private static final Method DEBUG;
+        private static final boolean AVAILABLE;
+
+        static {
+            Method getLogger = null;
+            Method info = null;
+            Method warn = null;
+            Method warnWithThrowable = null;
+            Method error = null;
+            Method errorWithThrowable = null;
+            Method debug = null;
+            boolean available;
+            try {
+                ClassLoader classLoader = ApplicationLoggerFactory.class.getClassLoader();
+                Class<?> loggerFactoryClass = Class.forName("org.slf4j.LoggerFactory", false, classLoader);
+                Class<?> loggerClass = Class.forName("org.slf4j.Logger", false, classLoader);
+                getLogger = loggerFactoryClass.getMethod("getLogger", Class.class);
+                info = loggerClass.getMethod("info", String.class, Object[].class);
+                warn = loggerClass.getMethod("warn", String.class, Object[].class);
+                warnWithThrowable = loggerClass.getMethod("warn", String.class, Throwable.class);
+                error = loggerClass.getMethod("error", String.class, Object[].class);
+                errorWithThrowable = loggerClass.getMethod("error", String.class, Throwable.class);
+                debug = loggerClass.getMethod("debug", String.class, Object[].class);
+                available = true;
+            } catch (ClassNotFoundException | NoSuchMethodException | SecurityException | LinkageError ex) {
+                available = false;
+            }
+            GET_LOGGER = getLogger;
+            INFO = info;
+            WARN = warn;
+            WARN_WITH_THROWABLE = warnWithThrowable;
+            ERROR = error;
+            ERROR_WITH_THROWABLE = errorWithThrowable;
+            DEBUG = debug;
+            AVAILABLE = available;
+        }
+
+        private Slf4jBridge() {
+        }
+
+        static ApplicationLogger tryCreate(Class<?> type) {
+            if (!AVAILABLE) {
+                return null;
+            }
+            try {
+                Object delegate = GET_LOGGER.invoke(null, type);
+                return new Slf4jLoggerProxy(delegate);
+            } catch (IllegalAccessException | InvocationTargetException ex) {
+                throw new IllegalStateException("Failed to create SLF4J logger", ex);
+            }
+        }
+
+        static boolean isAvailable() {
+            return AVAILABLE;
+        }
+
+        private static final class Slf4jLoggerProxy implements ApplicationLogger {
+            private final Object delegate;
+
+            private Slf4jLoggerProxy(Object delegate) {
+                this.delegate = delegate;
+            }
+
+            @Override
+            public void info(String message, Object... arguments) {
+                invoke(INFO, message, arguments);
+            }
+
+            @Override
+            public void warn(String message, Object... arguments) {
+                invoke(WARN, message, arguments);
+            }
+
+            @Override
+            public void warn(String message, Throwable throwable) {
+                invoke(WARN_WITH_THROWABLE, message, throwable);
+            }
+
+            @Override
+            public void error(String message, Object... arguments) {
+                invoke(ERROR, message, arguments);
+            }
+
+            @Override
+            public void error(String message, Throwable throwable) {
+                invoke(ERROR_WITH_THROWABLE, message, throwable);
+            }
+
+            @Override
+            public void debug(String message, Object... arguments) {
+                invoke(DEBUG, message, arguments);
+            }
+
+            private void invoke(Method method, String message, Object... arguments) {
+                if (method == null) {
+                    return;
+                }
+                try {
+                    if (arguments != null && method.getParameterCount() == 2 && method.getParameterTypes()[1].isArray()) {
+                        method.invoke(delegate, message, arguments);
+                    } else if (arguments == null || arguments.length == 0) {
+                        method.invoke(delegate, message);
+                    } else {
+                        method.invoke(delegate, message, arguments);
+                    }
+                } catch (IllegalAccessException ex) {
+                    throw new IllegalStateException("Failed to invoke SLF4J logger", ex);
+                } catch (InvocationTargetException ex) {
+                    Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
+                    throw new IllegalStateException("SLF4J logger threw an exception", cause);
+                }
+            }
+
+            private void invoke(Method method, String message, Throwable throwable) {
+                if (method == null) {
+                    return;
+                }
+                try {
+                    method.invoke(delegate, message, throwable);
+                } catch (IllegalAccessException ex) {
+                    throw new IllegalStateException("Failed to invoke SLF4J logger", ex);
+                } catch (InvocationTargetException ex) {
+                    Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
+                    throw new IllegalStateException("SLF4J logger threw an exception", cause);
+                }
+            }
         }
     }
 }

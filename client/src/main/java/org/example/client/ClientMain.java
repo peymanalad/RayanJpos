@@ -8,8 +8,9 @@ import org.jpos.iso.ISOResponseListener;
 import org.jpos.iso.MUX;
 import org.jpos.iso.channel.ASCIIChannel;
 import org.jpos.iso.packager.GenericPackager;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.jpos.util.Log;
+import org.jpos.util.Logger;
+import org.jpos.util.SimpleLogListener;
 
 import java.io.InputStream;
 import java.io.IOException;
@@ -30,8 +31,55 @@ import java.util.concurrent.TimeUnit;
  * Simple standalone client that submits an ISO 8583 authorization request and logs the response.
  */
 public final class ClientMain {
-    private static final Logger LOGGER = LoggerFactory.getLogger(ClientMain.class);
+    private static final Logger ROOT_LOGGER = initialiseLogger();
+    private static final Log LOG = new Log(ROOT_LOGGER, ClientMain.class.getSimpleName());
 
+    private static Logger initialiseLogger() {
+        Logger logger = Logger.getLogger("rayan-jpos-client");
+        if (!logger.hasListeners()) {
+            logger.addListener(new SimpleLogListener(System.out));
+        }
+        return logger;
+    }
+
+    private static void info(String message, Object... arguments) {
+        LOG.info(format(message, arguments));
+    }
+
+    private static void warn(String message, Object... arguments) {
+        LOG.warn(format(message, arguments));
+    }
+
+    private static void warn(String message, Throwable throwable) {
+        LOG.warn(message != null ? message : "", throwable);
+    }
+
+    private static void error(String message, Throwable throwable) {
+        LOG.error(message != null ? message : "", throwable);
+    }
+
+    private static String format(String message, Object... arguments) {
+        if (message == null || arguments == null || arguments.length == 0) {
+            return message;
+        }
+        StringBuilder builder = new StringBuilder();
+        int searchPosition = 0;
+        int argumentIndex = 0;
+        while (argumentIndex < arguments.length) {
+            int placeholder = message.indexOf("{}", searchPosition);
+            if (placeholder < 0) {
+                break;
+            }
+            builder.append(message, searchPosition, placeholder);
+            builder.append(String.valueOf(arguments[argumentIndex++]));
+            searchPosition = placeholder + 2;
+        }
+        builder.append(message.substring(searchPosition));
+        while (argumentIndex < arguments.length) {
+            builder.append(' ').append(String.valueOf(arguments[argumentIndex++]));
+        }
+        return builder.toString();
+    }
     private static final DateTimeFormatter TRANSMISSION_DATETIME = DateTimeFormatter.ofPattern("MMddHHmmss");
     private static final DateTimeFormatter LOCAL_TRANSACTION_TIME = DateTimeFormatter.ofPattern("HHmmss");
     private static final DateTimeFormatter LOCAL_TRANSACTION_DATE = DateTimeFormatter.ofPattern("MMdd");
@@ -45,10 +93,10 @@ public final class ClientMain {
             runClient();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            LOGGER.error("Client execution interrupted", e);
+            error("Client execution interrupted", e);
             System.exit(1);
         } catch (Exception e) {
-            LOGGER.error("Client execution failed", e);
+            error("Client execution failed", e);
             System.exit(1);
         }
     }
@@ -72,14 +120,14 @@ public final class ClientMain {
             } catch (ISOException e) {
                 if (hasFallback && isRetryableHostException(e)) {
                     lastIsoException = e;
-                    LOGGER.warn("Connection attempt to {}:{} failed ({}). Trying next candidate...", host, port, rootCauseMessage(e));
+                    warn("Connection attempt to {}:{} failed ({}). Trying next candidate...", host, port, rootCauseMessage(e));
                     continue;
                 }
                 throw e;
             } catch (IllegalStateException e) {
                 if (hasFallback) {
                     lastIllegalStateException = e;
-                    LOGGER.warn("Connection attempt to {}:{} failed ({}). Trying next candidate...", host, port, e.getMessage());
+                    warn("Connection attempt to {}:{} failed ({}). Trying next candidate...", host, port, e.getMessage());
                     continue;
                 }
                 throw e;
@@ -112,13 +160,13 @@ public final class ClientMain {
                 }
 
                 ISOMsg request = buildAuthorizationRequest(packager, dotenv);
-                LOGGER.info("Sending ISO 0200 request: {}", describeIsoMessage(request));
+                info("Sending ISO 0200 request: {}", describeIsoMessage(request));
 
                 ISOMsg response = mux.request(request, responseTimeout);
                 if (response == null) {
-                    LOGGER.warn("No response received from ISO host within {} ms", responseTimeout);
+                    warn("No response received from ISO host within {} ms", responseTimeout);
                 } else {
-                    LOGGER.info("Received ISO 0210 response: {}", describeIsoMessage(response));
+                    info("Received ISO 0210 response: {}", describeIsoMessage(response));
                 }
             }
         }
@@ -233,7 +281,7 @@ public final class ClientMain {
         try {
             return value != null ? Integer.parseInt(value) : defaultValue;
         } catch (NumberFormatException e) {
-            LOGGER.warn("Invalid integer value '{}', using default {}", value, defaultValue);
+            warn("Invalid integer value '{}', using default {}", value, defaultValue);
             return defaultValue;
         }
     }
@@ -242,7 +290,7 @@ public final class ClientMain {
         try {
             return value != null ? Long.parseLong(value) : defaultValue;
         } catch (NumberFormatException e) {
-            LOGGER.warn("Invalid long value '{}', using default {}", value, defaultValue);
+            warn("Invalid long value '{}', using default {}", value, defaultValue);
             return defaultValue;
         }
     }
@@ -342,8 +390,7 @@ public final class ClientMain {
                 try {
                     channel.disconnect();
                 } catch (IOException e) {
-                    LOGGER.warn("Error disconnecting ISO channel", e);
-                }
+                    warn("Error disconnecting ISO channel", e);                }
             }
         }
     }
