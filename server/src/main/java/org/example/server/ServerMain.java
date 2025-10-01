@@ -32,6 +32,7 @@ public final class ServerMain {
     public static void main(String[] args) {
         ensureJavaCompatibility();
         EnvironmentLoader.load();
+        configureRuntimeProperties();
 
         try {
             Path workingDirectory = prepareWorkingDirectory();
@@ -111,5 +112,11 @@ public final class ServerMain {
             LOGGER.error(message);
             throw new IllegalStateException(message);
         }
+    }
+
+    private static void configureRuntimeProperties() {
+        int port = EnvironmentLoader.getInt("SERVER_PORT", 5000);
+        System.setProperty("SERVER_PORT", Integer.toString(port));
+        LOGGER.info("Configured ISO server port to {}", port);
     }
 }
