@@ -1,6 +1,6 @@
 package org.example.client;
 
-import io.github.cdimascio.dotenv.Dotenv;
+import org.example.client.config.Environment;
 import org.jpos.iso.BaseChannel;
 import org.jpos.iso.ISOException;
 import org.jpos.iso.ISOMsg;
@@ -24,7 +24,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -102,12 +101,12 @@ public final class ClientMain {
     }
 
     private static void runClient() throws Exception {
-        Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
+        List<String> hosts = determineHosts(Environment.get("ISO_SERVER_HOST").orElse(null));
+        int port = parseInt(Environment.get("ISO_SERVER_PORT").orElse(null));
+        long connectTimeout = parseLong(Environment.get("ISO_CONNECT_TIMEOUT_MS").orElse(null), TimeUnit.SECONDS.toMillis(30));
+        long responseTimeout = parseLong(Environment.get("ISO_RESPONSE_TIMEOUT_MS").orElse(null), TimeUnit.SECONDS.toMillis(30));
 
-        List<String> hosts = determineHosts(dotenv.get("ISO_SERVER_HOST"));
-        int port = parseInt(dotenv.get("ISO_SERVER_PORT"));
-        long connectTimeout = parseLong(dotenv.get("ISO_CONNECT_TIMEOUT_MS"), TimeUnit.SECONDS.toMillis(30));
-        long responseTimeout = parseLong(dotenv.get("ISO_RESPONSE_TIMEOUT_MS"), TimeUnit.SECONDS.toMillis(30));
+        info("Using ISO hosts {} on port {} (connect timeout {} ms, response timeout {} ms)", hosts, port, connectTimeout, responseTimeout);
 
         ISOException lastIsoException = null;
         IllegalStateException lastIllegalStateException = null;
@@ -115,7 +114,7 @@ public final class ClientMain {
             String host = hosts.get(index);
             boolean hasFallback = index < hosts.size() - 1;
             try {
-                executeClient(host, port, connectTimeout, responseTimeout, dotenv);
+                executeClient(host, port, connectTimeout, responseTimeout);
                 return;
             } catch (ISOException e) {
                 if (hasFallback && isRetryableHostException(e)) {
@@ -143,7 +142,7 @@ public final class ClientMain {
         throw new IllegalStateException("No ISO server host could be resolved from configuration");
     }
 
-    private static void executeClient(String host, int port, long connectTimeout, long responseTimeout, Dotenv dotenv) throws Exception {
+    private static void executeClient(String host, int port, long connectTimeout, long responseTimeout) throws Exception {
 
         try (InputStream packagerStream = ClientMain.class.getResourceAsStream("/packager/iso87ascii.xml")) {
             if (packagerStream == null) {
@@ -159,7 +158,7 @@ public final class ClientMain {
                     throw new IllegalStateException("Unable to connect to ISO host " + host + ':' + port);
                 }
 
-                ISOMsg request = buildAuthorizationRequest(packager, dotenv);
+                ISOMsg request = buildAuthorizationRequest(packager);
                 info("Sending ISO 0200 request: {}", describeIsoMessage(request));
 
                 ISOMsg response = mux.request(request, responseTimeout);
@@ -224,21 +223,21 @@ public final class ClientMain {
         return new SynchronousMux(channel);
     }
 
-    private static ISOMsg buildAuthorizationRequest(GenericPackager packager, Dotenv dotenv) throws ISOException {
+    private static ISOMsg buildAuthorizationRequest(GenericPackager packager) throws ISOException {
         ISOMsg request = new ISOMsg();
         request.setPackager(packager);
         request.setMTI("0200");
 
-        LocalDateTime now = LocalDateTime.now(ZoneId.of(Optional.ofNullable(dotenv.get("ISO_CLIENT_TIMEZONE")).orElse("UTC")));
-        String pan = Optional.ofNullable(dotenv.get("ISO_PAN")).orElse("4242424242424242");
-        String processingCode = Optional.ofNullable(dotenv.get("ISO_PROCESSING_CODE")).orElse("000000");
-        String amount = Optional.ofNullable(dotenv.get("ISO_AMOUNT")).orElse("000000010000");
-        String posEntryMode = Optional.ofNullable(dotenv.get("ISO_POS_ENTRY_MODE")).orElse("012");
-        String posConditionCode = Optional.ofNullable(dotenv.get("ISO_POS_CONDITION_CODE")).orElse("00");
-        String acquiringInstitutionId = Optional.ofNullable(dotenv.get("ISO_ACQUIRER_ID")).orElse("000000");
-        String terminalId = Optional.ofNullable(dotenv.get("ISO_TERMINAL_ID")).orElse("TERMID01");
-        String merchantId = Optional.ofNullable(dotenv.get("ISO_MERCHANT_ID")).orElse("MERCHANT0001");
-        String currency = Optional.ofNullable(dotenv.get("ISO_CURRENCY_CODE")).orElse("840");
+        LocalDateTime now = LocalDateTime.now(ZoneId.of(Environment.getOrDefault("ISO_CLIENT_TIMEZONE", "UTC")));
+        String pan = Environment.getOrDefault("ISO_PAN", "4242424242424242");
+        String processingCode = Environment.getOrDefault("ISO_PROCESSING_CODE", "000000");
+        String amount = Environment.getOrDefault("ISO_AMOUNT", "000000010000");
+        String posEntryMode = Environment.getOrDefault("ISO_POS_ENTRY_MODE", "012");
+        String posConditionCode = Environment.getOrDefault("ISO_POS_CONDITION_CODE", "00");
+        String acquiringInstitutionId = Environment.getOrDefault("ISO_ACQUIRER_ID", "000000");
+        String terminalId = Environment.getOrDefault("ISO_TERMINAL_ID", "TERMID01");
+        String merchantId = Environment.getOrDefault("ISO_MERCHANT_ID", "MERCHANT0001");
+        String currency = Environment.getOrDefault("ISO_CURRENCY_CODE", "840");
 
         request.set(2, pan);
         request.set(3, processingCode);
