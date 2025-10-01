@@ -9,7 +9,7 @@ COPY client/src client/src
 RUN mvn -pl client -am -DskipTests package \
     && mvn -pl client -am -DskipTests dependency:copy-dependencies \
         -DincludeScope=runtime \
-        -DoutputDirectory=client/target/lib \
+        -DoutputDirectory=client/target/lib
 
 # Runtime stage
 FROM eclipse-temurin:23-jre
@@ -18,7 +18,6 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends netcat-openbsd \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=build /workspace/client/target/client-1.0-SNAPSHOT.jar app.jar
-COPY --from=build /workspace/client/target/lib ./lib
 ENV JAVA_OPTS=""
 
 ENTRYPOINT ["/bin/sh", "-c", "set -a; [ -f .env ] && . ./.env; set +a; exec java $JAVA_OPTS -cp \"app.jar:lib/*\" org.example.client.ClientMain"]
