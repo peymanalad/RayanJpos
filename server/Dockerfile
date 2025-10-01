@@ -13,7 +13,7 @@ FROM eclipse-temurin:23-jre
 WORKDIR /opt/rayan-jpos
 RUN apt-get update \
     && apt-get install -y --no-install-recommends netcat-openbsd \
-    && rm -rf /var/lib/apt/lists/* \
+    && rm -rf /var/lib/apt/lists/*
 COPY --from=build /workspace/server/target/server-1.0-SNAPSHOT.jar app.jar
 COPY server/wait-for.sh /usr/local/bin/wait-for
 RUN chmod +x /usr/local/bin/wait-for

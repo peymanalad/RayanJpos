@@ -50,8 +50,8 @@ public final class ClientMain {
         LOG.warn(format(message, arguments));
     }
 
-    private static void warn(String message, Throwable throwable) {
-        LOG.warn(message != null ? message : "", throwable);
+    private static void warn(Throwable throwable) {
+        LOG.warn("Error disconnecting ISO channel", throwable);
     }
 
     private static void error(String message, Throwable throwable) {
@@ -71,12 +71,12 @@ public final class ClientMain {
                 break;
             }
             builder.append(message, searchPosition, placeholder);
-            builder.append(String.valueOf(arguments[argumentIndex++]));
+            builder.append(arguments[argumentIndex++]);
             searchPosition = placeholder + 2;
         }
         builder.append(message.substring(searchPosition));
         while (argumentIndex < arguments.length) {
-            builder.append(' ').append(String.valueOf(arguments[argumentIndex++]));
+            builder.append(' ').append(arguments[argumentIndex++]);
         }
         return builder.toString();
     }
@@ -105,7 +105,7 @@ public final class ClientMain {
         Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
 
         List<String> hosts = determineHosts(dotenv.get("ISO_SERVER_HOST"));
-        int port = parseInt(dotenv.get("ISO_SERVER_PORT"), 5000);
+        int port = parseInt(dotenv.get("ISO_SERVER_PORT"));
         long connectTimeout = parseLong(dotenv.get("ISO_CONNECT_TIMEOUT_MS"), TimeUnit.SECONDS.toMillis(30));
         long responseTimeout = parseLong(dotenv.get("ISO_RESPONSE_TIMEOUT_MS"), TimeUnit.SECONDS.toMillis(30));
 
@@ -277,12 +277,12 @@ public final class ClientMain {
         return String.format("%06d", stan);
     }
 
-    private static int parseInt(String value, int defaultValue) {
+    private static int parseInt(String value) {
         try {
-            return value != null ? Integer.parseInt(value) : defaultValue;
+            return value != null ? Integer.parseInt(value) : 5000;
         } catch (NumberFormatException e) {
-            warn("Invalid integer value '{}', using default {}", value, defaultValue);
-            return defaultValue;
+            warn("Invalid integer value '{}', using default {}", value, 5000);
+            return 5000;
         }
     }
 
@@ -390,7 +390,7 @@ public final class ClientMain {
                 try {
                     channel.disconnect();
                 } catch (IOException e) {
-                    warn("Error disconnecting ISO channel", e);                }
+                    warn(e);                }
             }
         }
     }

@@ -84,12 +84,12 @@ public final class ApplicationLoggerFactory {
                     break;
                 }
                 builder.append(message, searchPosition, placeholder);
-                builder.append(String.valueOf(arguments[argumentIndex++]));
+                builder.append(arguments[argumentIndex++]);
                 searchPosition = placeholder + 2;
             }
             builder.append(message.substring(searchPosition));
             while (argumentIndex < arguments.length) {
-                builder.append(' ').append(String.valueOf(arguments[argumentIndex++]));
+                builder.append(' ').append(arguments[argumentIndex++]);
             }
             return builder.toString();
         }
